@@ -1,0 +1,129 @@
+#-############ -----------------------------------################-#
+# Load Data
+#-############ -----------------------------------################-#
+# External Data Source(s)
+#Note: There are two sources depending on which machine I'm running the magic on
+setwd("/home/anastasisiii/Dropbox/Papers/Αναστάσης Thesis/Numerics/Arbitrage-Free Regularization")
+setwd("/home/anastasopolis_old_faithful/Dropbox/Papers/Αναστάσης Thesis/Numerics/Arbitrage-Free Regularization")
+# Load: us.bis.yield.rda - Carmona's Dataset - US TREASURY BOND
+load(file = "/home/anastasisiii/Dropbox/Papers/Αναστάσης Thesis/Numerics/Arbitrage-Free Regularization/Data/us.bis.yield.rda")
+# Initializes Directory
+load(file = "/home/anastasopolis_old_faithful/Dropbox/Papers/Αναστάσης Thesis/Numerics/Arbitrage-Free Regularization/Data/us.bis.yield.rda")
+
+# Initializes Dataset
+Data.Set.Used<-Data.Set.Used.In<-Data.Set.Used.BU<-Data.Set.Used.Uncensored<-us.bis.yield
+
+
+################################3----########
+# Important Notes:
+# Don't forget that a vector in the space tangent to the shape space is perpendicular to x sooo...
+# x%*%v =0 :D
+
+##### Preliminary Functions ###
+# Norms
+l2<-function(xect.in){
+  #as.numeric(sqrt(sum(xect.in^2)))
+  as.complex(
+    sqrt(crossprod(xect.in,xect.in))
+  )
+  }
+l2.2<-function(xect.in){#as.numeric(sum(xect.in^2))
+  as.complex(
+   crossprod(xect.in,xect.in)
+  )
+  }
+# Complexification
+complexification<-function(x.r2.in){
+  complex(real=x.r2.in[1],imaginary = x.r2.in[2])
+}
+
+# Orthogonal Projection and recovery
+# a onto b (or complement of a wrt b)
+proj.a.b<-function(a.inn,b.inn,ORTHO.Q=TRUE){
+  b.in<-b.inn/l2(b.inn)
+  a.1<-as.complex(crossprod(a.inn,b.inn)/l2(b.inn))
+  ortho.a<-a.1*b.in
+  if(ORTHO.Q==TRUE){
+    ortho.compl<-a.inn-ortho.a
+    return(as.complex(ortho.compl))}else{
+      return(as.complex(ortho.a))
+    }
+}
+
+##### Exp ##
+Exp.Kendall<-function(x.in,v.in){
+angle<-l2(v.in)
+out.Exp<-cos(angle)*x.in + ((l2(x.in)*sin(angle))/angle)*v.in
+return(as.vector(out.Exp))
+}
+
+##### Exp ##
+Log.Kendall<-function(x.in,y.in){
+proj<-as.vector((x.in*as.numeric(crossprod(x.in,y.in)))/l2.2(x.in))
+angle.Log<-as.numeric(acos(
+  abs(crossprod(x.in,y.in))/(l2(x.in)*l2(y.in))
+  ))
+
+#angle.Log<- 
+Log.out<-(angle.Log*(y.in-proj))/l2(y.in-proj)
+return(Log.out)
+}
+####3# Test Zone ##
+## test.values
+v.test<-c(1,0)
+x.test<-c(0:1); x.test<-x.test/l2(x.test)
+#x.test<-numeric(10)
+x.test<-as.complex(x.test); y.test<-as.complex(y.test)
+#temp<-as.vector((x.test*as.numeric(crossprod(x.test,v.test)))/l2.2(x.test))
+#v.test<- x.test- temp*x.test
+#v.test%*%x.test
+# Testruns
+out.test<-Exp.Kendall(x.test,v.test); out.test
+Log.Kendall(x.test,out.test)
+
+#
+y.test<-c(1,1); y.test<-y.test/l2(y.test)
+w.test<-runif(2); w.test<-w.test/l2(w.test)
+out.test<-Log.Kendall(y.test,w.test); out.test
+round(sum((Exp.Kendall(y.test,out.test)-w.test)^2),5)
+
+
+
+
+
+
+
+
+
+
+# Kendall Shape Space Data Prep for FAMA BLISS
+# Data prep
+# Loading
+Unsmoothed_Data.shape<-Unsmoothed_Data<-Data.Set.Used
+Tenors<-c(1:17)
+# Complexifying
+dims<-dim(Unsmoothed_Data)
+for(k in 1:(dims[1])){
+  for(j in 1:(dims[2])){
+    Unsmoothed_Data.shape[k,j]<-complex(real=Unsmoothed_Data.shape[k,j],imaginary = Tenors[j])
+  }
+}
+# Perpendicularizing relative to first entry
+for(i in 1:2){
+  le.b<-as.complex(Unsmoothed_Data.shape[1,])
+  for(k in 2:(dims[1])){
+    le.a<-as.complex(Unsmoothed_Data.shape[k,])
+    Unsmoothed_Data.shape[k,]<-proj.a.b(le.a,le.b)
+  }
+}
+# Decomplification (PF has poop issues)
+Unsmoothed_Data.shape.Decomplex<-matrix(0,nrow = dims[1],ncol=(2*dims[2]))
+for(i in 1:(dims[1])){
+  Unsmoothed_Data.shape.Decomplex[1,c(1:(dims[2]))]<-Re(as.complex(Unsmoothed_Data.shape[i,]))
+  Unsmoothed_Data.shape.Decomplex[c(((dims[2]+1)):(2*dims[2]))]<-Im(as.complex(Unsmoothed_Data.shape[i,]))
+}
+Unsmoothed_Data.shape<-Unsmoothed_Data.shape.Decomplex;rm(Unsmoothed_Data.shape.Decomplex)
+# Verification
+round(crossprod(le.a,le.b),2)
+
+
